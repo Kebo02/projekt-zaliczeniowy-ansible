@@ -61,12 +61,13 @@
         name: "{{ share_name }}"
         path: "{{ drive_letter }}:\\Projekty"
         list: yes
-        full:
-          - Administrators
-          - "{{ group_name }}"
-        read: []
-        change: []
+        full: "Administrator,{{ group_name }}"
+        read: ""
         state: present
+
+    - name: Odśwież źródła Winget (naprawa błędu No package found)
+      ansible.windows.win_shell: winget source update
+      ignore_errors: yes
 
     - name: Zainstaluj 7zip
       ansible.windows.win_shell: winget install --id 7zip.7zip -e --source winget --accept-package-agreements --accept-source-agreements
@@ -75,9 +76,9 @@
     - name: Zainstaluj Firefox
       ansible.windows.win_shell: winget install --id Mozilla.Firefox -e --source winget --accept-package-agreements --accept-source-agreements
       ignore_errors: yes
-
+      
     - name: Zainstaluj BIND
-      ansible.windows.win_shell: winget install --id ISC.BIND -e --source winget --accept-package-agreements --accept-source-agreements
+      ansible.windows.win_shell: winget install --id ISC.BIND --source winget --accept-package-agreements --accept-source-agreements
       ignore_errors: yes
 
     - name: Zablokuj usuwanie drukarek
