@@ -9,20 +9,31 @@
     local_dest: "./backups/"
 
   tasks:
-    - name: 1. Spakuj pliki AdGuard Home do archiwum .tar.gz
-      community.general.archive:
-        path: "{{ target_dir }}"
-        dest: "{{ remote_archive }}"
-        format: gz
-        mode: '0644'
+    - block:
+        - name: 1. Spakuj pliki AdGuard Home do archiwum .tar.gz
+          community.general.archive:
+            path: "{{ target_dir }}"
+            dest: "{{ remote_archive }}"
+            format: gz
+            mode: '0644'
 
-    - name: 2. Pobierz kopię na serwer sterujący
-      fetch:
-        src: "{{ remote_archive }}"
-        dest: "{{ local_dest }}"
-        flat: yes
+        - name: 2. Pobierz kopię na serwer sterujący
+          fetch:
+            src: "{{ remote_archive }}"
+            dest: "{{ local_dest }}"
+            flat: yes
 
-    - name: 3. Usuń plik tymczasowy z serwera Linux
-      file:
-        path: "{{ remote_archive }}"
-        state: absent
+        - name: 3. Usuń plik tymczasowy z serwera Linux
+          file:
+            path: "{{ remote_archive }}"
+            state: absent
+
+      rescue:
+        - name:  Wyslij powiadomienie o błędzie backupu na discorda
+          uri:
+            url: "https://discord.com/api/webhooks/1461048148897038582/dWFiGWnt7KCGORakIl1GMDmxg2TR2V22SLIhc5zAu_ZzdFLhE5QTCBrlnz-IR2RT4xbx"
+            method: POST
+            body_format: json
+            body:
+              content: "Kopia zapasowa AdGuard nie powiodła się"
+            status_code: [200, 204]

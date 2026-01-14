@@ -4,23 +4,34 @@
   become: yes
 
   tasks:
-    - name: 1. Aktualizacja pamięci podręcznej 
-      apt:
-        update_cache: yes
-        cache_valid_time: 3600
+    - block:
+        - name: 1. Aktualizacja pamięci podręcznej 
+          apt:
+            update_cache: yes
+            cache_valid_time: 3600
 
-    - name: 2. Aktualizacja pakietów 
-      apt:
-        upgrade: dist
-        autoremove: yes
-        autoclean: yes
+        - name: 2. Aktualizacja pakietów 
+          apt:
+            upgrade: dist
+            autoremove: yes
+            autoclean: yes
 
-    - name: 3. Czy wymagany jest restart serwera
-      stat:
-        path: /var/run/reboot-required
-      register: reboot_file
+        - name: 3. Czy wymagany jest restart serwera
+          stat:
+            path: /var/run/reboot-required
+          register: reboot_file
 
-    - name: 4. Wyświetl informację o konieczności restartu
-      debug:
-        msg: "Serwer wymaga restartu po aktualizacji"
-      when: reboot_file.stat.exists
+        - name: 4. Wyświetl informację o konieczności restartu
+          debug:
+            msg: "Serwer wymaga restartu po aktualizacji"
+          when: reboot_file.stat.exists
+
+      rescue:
+        - name: Wyslij powiadomienie o błędzie na discorda
+          uri:
+            url: "https://discord.com/api/webhooks/1461048148897038582/dWFiGWnt7KCGORakIl1GMDmxg2TR2V22SLIhc5zAu_ZzdFLhE5QTCBrlnz-IR2RT4xbx"
+            method: POST
+            body_format: json
+            body:
+              content: "Aktualizacja Linuxa nie powiodła się"
+            status_code: [200, 204]
