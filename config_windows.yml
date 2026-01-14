@@ -1,0 +1,89 @@
+---
+- name: Konfiguracja windows server 
+  hosts: windows
+  gather_facts: no
+
+  vars:
+    surname: "Biksa"
+    pool_name: "StoragePool_{{ surname }}"
+    virtual_disk_name: "VDisk_{{ surname }}"
+    drive_letter: "F"
+    share_name: "Projekty_{{ surname }}"
+    group_name: "Kierownicy_{{ surname }}"
+    user_password: "Password123!"
+
+  tasks:
+    - name: Skonfiguruj storage pool, virtual disk i wolumen F
+      ansible.windows.win_shell: |
+        if (Get-VirtualDisk -FriendlyName "{{ virtual_disk_name }}" -ErrorAction SilentlyContinue) {
+            Exit 0
+        }
+        $disks = Get-PhysicalDisk -CanPool $true
+        if ($disks.Count -lt 1) {
+            Write-Error "Brak wolnych dysków"
+            Exit 1
+        }
+        New-StoragePool -FriendlyName "{{ pool_name }}" -StorageSubsystemFriendlyName "Windows Storage*" -PhysicalDisks $disks -ErrorAction Stop
+        New-VirtualDisk -StoragePoolFriendlyName "{{ pool_name }}" -FriendlyName "{{ virtual_disk_name }}" -ResiliencySettingName Mirror -UseMaximumSize -ProvisioningType Fixed
+        Get-VirtualDisk -FriendlyName "{{ virtual_disk_name }}" | Get-Disk | Initialize-Disk -PartitionStyle GPT -PassThru | New-Partition -DriveLetter "{{ drive_letter }}" -UseMaximumSize | Format-Volume -FileSystem ReFS -NewFileSystemLabel "ProjektyDisk" -Confirm:$false
+
+    - name: Utwórz grupę zabezpieczeń
+      ansible.windows.win_group:
+        name: "{{ group_name }}"
+        state: present
+        description: "Grupa Kierownikow"
+
+    - name: Utwórz użytkownika Marek Romanek
+      ansible.windows.win_user:
+        name: "Marek Romanek"
+        password: "{{ user_password }}"
+        state: present
+        groups:
+          - Users
+          - "{{ group_name }}"
+
+    - name: Utwórz użytkownika Jacek Gula
+      ansible.windows.win_user:
+        name: "Jacek Gula"
+        password: "{{ user_password }}"
+        state: present
+        groups:
+          - Users
+          - "{{ group_name }}"
+
+    - name: Utwórz katalog fizyczny
+      ansible.windows.win_file:
+        path: "{{ drive_letter }}:\\Projekty"
+        state: directory
+
+    - name: Udostępnij katalog
+      ansible.windows.win_share:
+        name: "{{ share_name }}"
+        path: "{{ drive_letter }}:\\Projekty"
+        list: yes
+        full:
+          - Administrators
+          - "{{ group_name }}"
+        read: []
+        change: []
+        state: present
+
+    - name: Zainstaluj 7zip
+      ansible.windows.win_shell: winget install --id 7zip.7zip -e --source winget --accept-package-agreements --accept-source-agreements
+      ignore_errors: yes
+
+    - name: Zainstaluj Firefox
+      ansible.windows.win_shell: winget install --id Mozilla.Firefox -e --source winget --accept-package-agreements --accept-source-agreements
+      ignore_errors: yes
+
+    - name: Zainstaluj BIND
+      ansible.windows.win_shell: winget install --id ISC.BIND -e --source winget --accept-package-agreements --accept-source-agreements
+      ignore_errors: yes
+
+    - name: Zablokuj usuwanie drukarek
+      ansible.windows.win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer
+        name: NoDeletePrinter
+        data: 1
+        type: dword
+        state: present
