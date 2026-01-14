@@ -1,0 +1,28 @@
+---
+- name: Wykonanie kopii zapasowej AdGuard Home
+  hosts: linux
+  become: yes
+
+  vars:
+    target_dir: /adguardhome
+    remote_archive: "/tmp/adguard_backup_{{ ansible_date_time.date }}.tar.gz"
+    local_dest: "./backups/"
+
+  tasks:
+    - name: 1. Spakuj pliki AdGuard Home do archiwum .tar.gz
+      community.general.archive:
+        path: "{{ target_dir }}"
+        dest: "{{ remote_archive }}"
+        format: gz
+        mode: '0644'
+
+    - name: 2. Pobierz kopię na serwer sterujący
+      fetch:
+        src: "{{ remote_archive }}"
+        dest: "{{ local_dest }}"
+        flat: yes
+
+    - name: 3. Usuń plik tymczasowy z serwera Linux
+      file:
+        path: "{{ remote_archive }}"
+        state: absent

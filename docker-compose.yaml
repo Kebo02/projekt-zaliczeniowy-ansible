@@ -1,0 +1,37 @@
+services:
+  mysql:
+    restart: unless-stopped
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    hostname: mysql
+    volumes:
+      - semaphore-mysql:/var/lib/mysql
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+      MYSQL_DATABASE: semaphore
+      MYSQL_USER: semaphore
+      MYSQL_PASSWORD: Zaq12wsx
+  semaphore:
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    image: public.ecr.aws/semaphore/pro/server:v2.15.2
+    environment:
+      SEMAPHORE_DB_USER: semaphore
+      SEMAPHORE_DB_PASS: Zaq12wsx
+      SEMAPHORE_DB_HOST: mysql 
+      SEMAPHORE_DB_PORT: 3306 
+      SEMAPHORE_DB_DIALECT: mysql 
+      SEMAPHORE_DB: semaphore
+      SEMAPHORE_PLAYBOOK_PATH: /tmp/semaphore/
+      SEMAPHORE_ADMIN_PASSWORD: Zaq12wsx
+      SEMAPHORE_ADMIN_NAME: admin
+      SEMAPHORE_ADMIN_EMAIL: admin@localhost
+      SEMAPHORE_ADMIN: admin
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: XoEh4ExYH8NSElheKACCfkcZCbOo/IFCl7uKBp0fCmI=
+      SEMAPHORE_LDAP_ACTIVATED: 'no' 
+      TZ: UTC
+    depends_on:
+      - mysql 
+volumes:
+  semaphore-mysql: 

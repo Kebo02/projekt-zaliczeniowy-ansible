@@ -1,0 +1,102 @@
+---
+- name: Konfiguracja Serwera AdGuard Home (LVM i RAID)
+  hosts: linux
+  become: yes  
+
+  vars:
+    disk_1: /dev/sdb
+    disk_2: /dev/sdc
+    mount_dir: /adguardhome
+
+  tasks:
+    - name: 1. Zainstaluj narzędzia LVM2
+      apt:
+        name: lvm2
+        state: present
+        update_cache: yes
+    - name: 2. Utwórz Grupę Woluminów (VG) o nazwie 'adg_vg'
+      lvg:
+        vg: adg_vg
+        pvs: "{{ disk_1 }},{{ disk_2 }}"
+
+
+    - name: 2.5. Sprawdź czy wolumin logiczny już istnieje
+      stat:
+        path: /dev/adg_vg/adg_lv
+      register: lv_stat
+
+    - name: 3. Utwórz Wolumin Logiczny (LV) w trybie RAID1
+      lvol:
+        vg: adg_vg
+        lv: adg_lv
+        size: 100%FREE  
+        opts: "--type raid1 --mirrors 1 --nosync"
+      when: not lv_stat.stat.exists  
+
+    - name: 4. Sformatuj wolumin systemem plików ext4
+      filesystem:
+        fstype: ext4
+        dev: /dev/adg_vg/adg_lv
+
+    - name: 5. Utwórz katalog i zamontuj dysk
+      mount:
+        path: "{{ mount_dir }}"
+        src: /dev/adg_vg/adg_lv
+        fstype: ext4
+        state: mounted
+
+    - name: 6. Pobierz i rozpakuj AdGuard Home
+      unarchive:
+        src: https://static.adguard.com/adguardhome/release/AdGuardHome_linux_amd64.tar.gz
+        dest: "{{ mount_dir }}"
+        remote_src: yes
+        extra_opts: [--strip-components=1] 
+
+    - name: 6.5. Nadaj uprawnienia do uruchamiania
+      file:
+        path: "{{ mount_dir }}/AdGuardHome/AdGuardHome"
+        mode: '0755'
+
+    - name: 7. Zainstaluj usługę AdGuard Home
+      command: ./AdGuardHome -s install
+      args:
+        chdir: "{{ mount_dir }}/AdGuardHome"
+        creates: "/etc/systemd/system/AdGuardHome.service"
+
+    - name: 8. Uruchom usługę AdGuard Home
+      service:
+        name: AdGuardHome
+        state: started
+        enabled: yes
+
+    - name: 9. Zainstaluj UFW (Uncomplicated Firewall)
+      apt:
+        name: ufw
+        state: present
+
+    - name: 10. Zezwól na SSH 
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: 11. Zezwól na porty AdGuard Home 
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - '53'
+        - '80'
+        - '443'
+        - '3000' 
+
+    - name: 12. Zezwól na DNS po UDP
+      ufw:
+        rule: allow
+        port: '53'
+        proto: udp
+
+    - name: 13. Włącz Firewall i zablokuj resztę
+      ufw:
+        state: enabled
+        policy: deny
