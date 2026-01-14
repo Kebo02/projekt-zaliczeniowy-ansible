@@ -5,6 +5,10 @@
 
   tasks:
     - block:
+
+        - name:  TEST AWARII - Symulacja błędu
+          command: /bin/false
+
         - name: 1. Aktualizacja pamięci podręcznej 
           apt:
             update_cache: yes
